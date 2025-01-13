@@ -70,3 +70,27 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+# Modify this function to use your LLM API
+def call_llm_api(context, question):
+    # Combine context and question into a single input
+    input_text = f"Answer the question based on the document: \n{context}\n\nQuestion: {question}\nAnswer:"
+    # Call your LLM API function here and return the output
+    response = your_llm_api_function(input_text)  # Replace with actual API function
+    return response
+
+# Modified query function
+def query_chain(vector_store, question):
+    retriever = vector_store.as_retriever(search_kwargs={"k": 3})  # Retrieve top 3 chunks
+    docs = retriever.get_relevant_documents(question)
+    
+    # Combine the content of retrieved documents for the context
+    context = "\n\n".join([doc.page_content for doc in docs])
+    
+    # Call your LLM API
+    answer = call_llm_api(context, question)
+    return answer
+
