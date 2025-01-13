@@ -37,11 +37,18 @@ def setup_qa_chain(vector_store):
     chain = RetrievalQA(llm=llm, retriever=retriever, prompt_template=prompt_template)
     return chain
 
-# Step 5: Query the Chain
-def query_chain(chain, question):
-    response = chain.run(question)
+# Modified query function with source page numbers
+def query_chain(vector_store, question):
+    retriever = vector_store.as_retriever(search_kwargs={"k": 3})  # Retrieve top 3 chunks
+    docs = retriever.get_relevant_documents(question)
+    
+    # Combine the content of retrieved documents for the context
+    context = "\n\n".join([f"Page {doc.metadata.get('page', 'N/A')}: {doc.page_content}" for doc in docs])
+    
+    # Call the LLM with context and question
+    input_text = f"Answer the question based on the document: \n{context}\n\nQuestion: {question}\nAnswer:"
+    response = qa_chain.llm(input_text)  # Adjusted to directly call the LLM
     return response
-
 # Main Function
 def main():
     pdf_path = "your_document.pdf"  # Replace with your PDF file path
