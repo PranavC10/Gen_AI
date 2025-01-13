@@ -55,21 +55,14 @@ def main():
     print("Creating vector store...")
     vector_store = create_vector_store(split_docs)
 
-    # Set up RetrievalQA chain
-    print("Setting up QA chain...")
-    qa_chain = setup_qa_chain(vector_store)
-
-    # Query the chain
+    # Query the chain manually
     print("Ready to answer questions.\n")
     while True:
         question = input("Enter your question (or 'exit' to quit): ")
         if question.lower() == "exit":
             break
-        response = query_chain(qa_chain, question)
+        response = query_chain(vector_store, question)
         print(f"\nAnswer: {response}\n")
-
-if __name__ == "__main__":
-    main()
 
 
 
