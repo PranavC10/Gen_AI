@@ -38,17 +38,19 @@ def setup_qa_chain(vector_store):
     return chain
 
 # Modified query function with source page numbers
+# Step 5: Query Function
 def query_chain(vector_store, question):
     retriever = vector_store.as_retriever(search_kwargs={"k": 3})  # Retrieve top 3 chunks
     docs = retriever.get_relevant_documents(question)
     
-    # Combine the content of retrieved documents for the context
-    context = "\n\n".join([f"Page {doc.metadata.get('page', 'N/A')}: {doc.page_content}" for doc in docs])
+    # Combine context from retrieved documents
+    context = "\n\n".join([f"Page {doc.metadata.get('page', 'unknown')}: {doc.page_content}" for doc in docs])
     
-    # Call the LLM with context and question
-    input_text = f"Answer the question based on the document: \n{context}\n\nQuestion: {question}\nAnswer:"
-    response = qa_chain.llm(input_text)  # Adjusted to directly call the LLM
-    return response
+    # Call the custom LLM API
+    answer = call_llm_api(context, question)
+    source_pages = [doc.metadata.get("page", "unknown") for doc in docs]
+    return answer, source_pages
+# Main Function
 # Main Function
 def main():
     pdf_path = "your_document.pdf"  # Replace with your PDF file path
@@ -56,22 +58,28 @@ def main():
     # Load and preprocess PDF
     print("Loading and preprocessing PDF...")
     documents = load_pdf(pdf_path)
+
+    # Ensure metadata includes page numbers
+    for i, doc in enumerate(documents):
+        doc.metadata["page"] = i + 1
+
     split_docs = split_documents(documents)
 
     # Create vector store
     print("Creating vector store...")
     vector_store = create_vector_store(split_docs)
 
-    # Query the chain manually
+    # Query manually to include page numbers
     print("Ready to answer questions.\n")
     while True:
         question = input("Enter your question (or 'exit' to quit): ")
         if question.lower() == "exit":
             break
-        response = query_chain(vector_store, question)
-        print(f"\nAnswer: {response}\n")
+        answer, source_pages = query_chain(vector_store, question)
+        print(f"\nAnswer: {answer}\nSources: Pages {', '.join(map(str, source_pages))}\n")
 
-
+if __name__ == "__main__":
+    main()
 
 
 # Modify this function to use your LLM API
