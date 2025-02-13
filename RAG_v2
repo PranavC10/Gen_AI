@@ -1,0 +1,88 @@
+import pandas as pd
+import numpy as np
+from sentence_transformers import SentenceTransformer
+import faiss
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+# Simple Llama API simulator (replace with real API calls)
+def query_llama(prompt: str) -> str:
+    """Simulated LLM response"""
+    return f"Generated response for: {prompt[:50]}..."
+
+# 1. Document Processing
+def process_document(document_path: str) -> list:
+    """Convert PDF to text chunks (implement PDF parsing as needed)"""
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,
+        chunk_overlap=200
+    )
+    # Add your PDF text extraction logic here
+    sample_text = " ".join(["Sample document text "] * 5000)  # Replace with real text
+    return text_splitter.split_text(sample_text)
+
+# 2. Create Embeddings and FAISS Index
+def create_vector_store(chunks: list) -> tuple:
+    model = SentenceTransformer('all-MiniLM-L6-v2')
+    embeddings = model.encode(chunks)
+    index = faiss.IndexFlatL2(embeddings.shape[1])
+    index.add(embeddings.astype('float32'))
+    return index, model, chunks
+
+# 3. Question Decomposition
+def decompose_question(question: str) -> list:
+    prompt = f"Break this into sub-questions:\n{question}\nReturn each on a new line:"
+    response = query_llama(prompt)
+    return [q.strip() for q in response.split('\n') if q.strip()]
+
+# 4. Answer Generation
+def answer_question(question: str, index, model, chunks) -> str:
+    # Retrieve relevant context
+    query_embedding = model.encode([question])
+    _, indices = index.search(query_embedding.astype('float32'), k=3)
+    context = "\n".join([chunks[i] for i in indices[0]])
+    
+    # Generate answer
+    prompt = f"Context:\n{context}\n\nQuestion: {question}\nAnswer:"
+    return query_llama(prompt)
+
+# 5. Answer Synthesis
+def synthesize_answers(main_question: str, sub_answers: list, example: str) -> str:
+    prompt = f"""Combine these answers in the style of the example:
+    Example Style: {example}
+    Question: {main_question}
+    Answers:\n- """ + '\n- '.join(sub_answers)
+    return query_llama(prompt)
+
+# Main Execution
+if __name__ == "__main__":
+    # Process document
+    chunks = process_document("white_paper.pdf")
+    index, model, chunks = create_vector_store(chunks)
+    
+    # Load questions and examples
+    df = pd.read_excel("questions.xlsx")
+    
+    results = []
+    for _, row in df.iterrows():
+        # Decompose question
+        sub_questions = decompose_question(row['Question'])
+        
+        # Answer sub-questions
+        sub_answers = [answer_question(q, index, model, chunks) for q in sub_questions]
+        
+        # Synthesize final answer
+        final_answer = synthesize_answers(
+            row['Question'],
+            sub_answers,
+            row.get('Example Answer', '')
+        )
+        
+        results.append({
+            'Question': row['Question'],
+            'Answer': final_answer,
+            'Sub-Questions': sub_questions
+        })
+    
+    # Save results
+    pd.DataFrame(results).to_excel("answers.xlsx", index=False)
+    print("Processing complete! Answers saved to answers.xlsx")
